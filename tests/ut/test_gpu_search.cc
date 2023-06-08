@@ -85,6 +85,46 @@ TEST_CASE("Test All GPU Index", "[search]") {
         }
     }
 
+    SECTION("Test Gpu Index Search With Bitset") {
+        using std::make_tuple;
+        auto [name, gen] = GENERATE_REF(table<std::string, std::function<knowhere::Json()>>({
+            // GPU_FLAT cannot run this test is because its Train() and Add() actually run in CPU,
+            // "res_" in gpu_index_ is not set correctly
+            // make_tuple(knowhere::IndexEnum::INDEX_FAISS_GPU_IDMAP, gpu_flat_gen),
+            // make_tuple(knowhere::IndexEnum::INDEX_FAISS_GPU_IVFFLAT, ivfflat_gen),
+            // make_tuple(knowhere::IndexEnum::INDEX_FAISS_GPU_IVFPQ, ivfpq_gen),
+            // make_tuple(knowhere::IndexEnum::INDEX_FAISS_GPU_IVFSQ8, ivfsq_gen),
+            make_tuple(knowhere::IndexEnum::INDEX_RAFT_IVFFLAT, ivfflat_gen),
+            make_tuple(knowhere::IndexEnum::INDEX_RAFT_IVFPQ, ivfpq_gen),
+        }));
+        auto idx = knowhere::IndexFactory::Instance().Create(name);
+        auto cfg_json = gen().dump();
+        CAPTURE(name, cfg_json);
+        knowhere::Json json = knowhere::Json::parse(cfg_json);
+        auto train_ds = GenDataSet(nb, dim, seed);
+        auto query_ds = GenDataSet(nq, dim, seed);
+        REQUIRE(idx.Type() == name);
+        auto res = idx.Build(*train_ds, json);
+        REQUIRE(res == knowhere::Status::success);
+        constexpr float raftIvfThreshold = 0.9f;
+
+        std::vector<std::function<std::vector<uint8_t>(size_t, size_t)>> gen_bitset_funcs = {
+            GenerateBitsetWithFirstTbitsSet, GenerateBitsetWithRandomTbitsSet};
+        const auto bitset_percentages = {0.4f, 0.98f};
+        for (const float percentage : bitset_percentages) {
+            for (const auto& gen_func : gen_bitset_funcs) {
+                auto bitset_data = gen_func(50, percentage * 50);
+                knowhere::BitsetView bitset(bitset_data.data(), 50);
+                auto results = idx.Search(*query_ds, json, bitset);
+                REQUIRE(results.has_value());
+                auto gt = knowhere::BruteForce::Search(train_ds, query_ds, json, bitset);
+                float recall = GetKNNRecall(*gt.value(), *results.value());
+                auto ids = results.value()->GetIds();
+                REQUIRE(recall > raftIvfThreshold);
+            }
+        }
+    }
+
     SECTION("Test Gpu Index Serialize/Deserialize") {
         using std::make_tuple;
         auto [name, gen] = GENERATE_REF(table<std::string, std::function<knowhere::Json()>>({
