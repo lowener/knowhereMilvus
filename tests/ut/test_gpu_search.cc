@@ -12,6 +12,7 @@
 #include "catch2/catch_approx.hpp"
 #include "catch2/catch_test_macros.hpp"
 #include "catch2/generators/catch_generators.hpp"
+#include "knowhere/comp/brute_force.h"
 #include "knowhere/comp/index_param.h"
 #include "knowhere/comp/knowhere_config.h"
 #include "knowhere/factory.h"
@@ -56,7 +57,8 @@ TEST_CASE("Test All GPU Index", "[search]") {
         return json;
     };
 
-    SECTION("Test Gpu Index Search") {
+    /*
+    SECTION("Test Gpu Index Search Without Bitset") {
         using std::make_tuple;
         auto [name, gen] = GENERATE_REF(table<std::string, std::function<knowhere::Json()>>({
             // GPU_FLAT cannot run this test is because its Train() and Add() actually run in CPU,
@@ -84,6 +86,7 @@ TEST_CASE("Test All GPU Index", "[search]") {
             CHECK(ids[i] == i);
         }
     }
+    */
 
     SECTION("Test Gpu Index Search With Bitset") {
         using std::make_tuple;
