@@ -116,8 +116,8 @@ TEST_CASE("Test All GPU Index", "[search]") {
         const auto bitset_percentages = {0.4f, 0.98f};
         for (const float percentage : bitset_percentages) {
             for (const auto& gen_func : gen_bitset_funcs) {
-                auto bitset_data = gen_func(50, percentage * 50);
-                knowhere::BitsetView bitset(bitset_data.data(), 50);
+                auto bitset_data = gen_func(nb, percentage * nb);
+                knowhere::BitsetView bitset(bitset_data.data(), nb);
                 auto results = idx.Search(*query_ds, json, bitset);
                 REQUIRE(results.has_value());
                 auto gt = knowhere::BruteForce::Search(train_ds, query_ds, json, bitset);
